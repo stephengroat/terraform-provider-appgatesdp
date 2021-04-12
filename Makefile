@@ -9,7 +9,7 @@ GOARCH=$(shell go env GOARCH)
 HOSTNAME=appgate.com
 NAMESPACE=appgate
 NAME=appgate-sdp
-VERSION=0.3.5
+VERSION=0.4.1
 
 
 build:
