@@ -1,12 +1,15 @@
 package appgate
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/appgate/sdp-api-client-go/api/v14/openapi"
+	"github.com/appgate/terraform-provider-appgate/appgate/hashcode"
 
 	"github.com/google/uuid"
 
@@ -93,8 +96,52 @@ func resourceAppgateEntitlement() *schema.Resource {
 			},
 
 			"actions": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeSet,
 				Required: true,
+				Set: func(v interface{}) int {
+					m := v.(map[string]interface{})
+					var buf bytes.Buffer
+					buf.WriteString(fmt.Sprintf("%s-", m["subtype"].(string)))
+					buf.WriteString(fmt.Sprintf("%s-", m["action"].(string)))
+					if v, ok := m["hosts"]; ok {
+						vs := v.([]interface{})
+						s := make([]string, len(vs))
+						for i, raw := range vs {
+							s[i] = raw.(string)
+						}
+						sort.Strings(s)
+
+						for _, v := range s {
+							buf.WriteString(fmt.Sprintf("%s-", v))
+						}
+					}
+					if v, ok := m["ports"]; ok {
+						vs := v.([]interface{})
+						s := make([]string, len(vs))
+						for i, raw := range vs {
+							s[i] = raw.(string)
+						}
+						sort.Strings(s)
+
+						for _, v := range s {
+							buf.WriteString(fmt.Sprintf("%s-", v))
+						}
+					}
+					if v, ok := m["types"]; ok {
+						vs := v.([]interface{})
+						s := make([]string, len(vs))
+						for i, raw := range vs {
+							s[i] = raw.(string)
+						}
+						sort.Strings(s)
+
+						for _, v := range s {
+							buf.WriteString(fmt.Sprintf("%s-", v))
+						}
+					}
+
+					return hashcode.String(buf.String())
+				},
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 
@@ -212,8 +259,8 @@ func resourceAppgateEntitlementRuleCreate(ctx context.Context, d *schema.Resourc
 		args.SetConditionLogic(v.(string))
 	}
 
-	if c, ok := d.GetOk("conditions"); ok {
-		conditions, err := readArrayOfStringsFromConfig(c.(*schema.Set).List())
+	if v, ok := d.GetOk("conditions"); ok {
+		conditions, err := readArrayOfStringsFromConfig(v.(*schema.Set).List())
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -221,7 +268,7 @@ func resourceAppgateEntitlementRuleCreate(ctx context.Context, d *schema.Resourc
 	}
 
 	if v, ok := d.GetOk("actions"); ok {
-		actions, err := readConditionActionsFromConfig(v.([]interface{}))
+		actions, err := readConditionActionsFromConfig(v.(*schema.Set).List())
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -388,7 +435,7 @@ func resourceAppgateEntitlementRuleUpdate(ctx context.Context, d *schema.Resourc
 
 	if d.HasChange("actions") {
 		_, v := d.GetChange("actions")
-		actions, err := readConditionActionsFromConfig(v.([]interface{}))
+		actions, err := readConditionActionsFromConfig(v.(*schema.Set).List())
 		if err != nil {
 			return diag.FromErr(err)
 		}
